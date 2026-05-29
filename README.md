@@ -1,6 +1,6 @@
 # Pyke - Robô Submarino - TCC ROBÔS
 
-## Integrates: 
+## Integrantes: 
 
 Franscisco Ribeiro Silva Lima
 Henrique Luisi Fernandes Pinto
