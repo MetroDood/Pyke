@@ -1,0 +1,65 @@
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Float32, String
+from sensor_msgs.msg import Image
+from nav_msgs.msg import Odometry
+import serial
+import json
+
+class ControllerNode(Node):
+    def __init__(self):
+        super().__init__('controller_node')
+        
+        # Serial connection to esp32
+        self.esp32_serial = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
+        
+        # Subscribers - Sensors, mask, keyboard Teleop
+        self.moisture_sub = self.create_subscription(
+            Float32, '/sensor/moisture', self.moisture_callback, 10)
+        self.ultrasound_sub = self.create_subscription(
+            Float32, '/sensor/ultrasound', self.ultrasound_callback, 10)
+        self.odometry_sub = self.create_subscription(
+            Odometry, '/odometry/filtered', self.odometry_callback, 10)
+        self.mask_percentage_sub = self.create_subscription(
+            Float32, '/ucracks/mask_percentage', self.mask_percentage_callback, 10)
+        self.mask_sub = self.create_subscription(
+            Image, '/ucracks/mask', self.mask_callback, 10)
+        self.keyboard_sub = self.create_subscription(
+            String, '/teleop/keyboard', self.keyboard_callback, 10)
+        
+        # Store sensor data
+        self.sensor_data = {}
+        self.user_direction = None
+        
+    def moisture_callback(self, msg):
+        self.sensor_data['moisture'] = msg.data
+        
+    def ultrasound_callback(self, msg):
+        self.sensor_data['distance'] = msg.data
+        
+    def odometry_callback(self, msg):
+        self.sensor_data['position'] = msg.pose.pose.position
+        
+    def mask_percentage_callback(self, msg):
+        self.sensor_data['mask_percentage'] = msg.data
+        
+    def mask_callback(self, msg):
+        self.sensor_data['mask'] = msg
+        
+    def keyboard_callback(self, msg):
+        self.user_direction = msg.data
+        self.send_to_esp32(self.user_direction)
+        
+    def send_to_esp32(self, direction):
+        command = json.dumps({'direction': direction})
+        self.esp32_serial.write(command.encode())
+        self.get_logger().info(f'Sent to esp32: {direction}')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = ControllerNode()
+    rclpy.spin(node)
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
